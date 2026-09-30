@@ -1,14 +1,18 @@
 from django.shortcuts import render, redirect
 from django.http import HttpResponse
-from .models import Tarea
-# Create your views here.
+from django.contrib.auth import authenticate
 
-# def inicio(request):
-#     return HttpResponse("Hola, esta es mi App de Tareas")
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from rest_framework.permissions import AllowAny
+from rest_framework.authtoken.models import Token
+from .models import Tarea
+
+# Create your views here.
 
 def inicio(request):
     tareas = Tarea.objects.all()
-
     return render(request, 'tareasapp/inicio.html', {
         'tareas': tareas
     }) 
@@ -21,7 +25,7 @@ def crear_tarea(request):
 
         Tarea.objects.create(
             titulo = titulo,
-            descripcion= descripcion,
+            descripcion = descripcion,
             completada = completada
         )
         return redirect('inicio')
@@ -29,7 +33,6 @@ def crear_tarea(request):
 
 def detalle_tarea(request, id):
     tarea = Tarea.objects.get(id=id)
-
     return render(request, 'tareasapp/detalle.html', {
         'tarea': tarea
     })
@@ -41,9 +44,7 @@ def editar_tarea(request, id):
         tarea.titulo = request.POST['titulo']
         tarea.descripcion = request.POST['descripcion']
         tarea.completada = 'completada' in request.POST
-
         tarea.save()
-
         return redirect('inicio')
 
     return render(request, 'tareasapp/editar.html', {
@@ -59,4 +60,35 @@ def eliminar_tarea(request, id):
 
     return render(request, 'tareasapp/eliminar.html', {
         'tarea': tarea
-    } )
+    })
+
+def login_pagina(request):
+    return render(request, 'tareasapp/login.html')
+
+class LoginAPIView(APIView):
+    permission_classes = [AllowAny]
+    
+    def post(self, request):
+        username = request.data.get('username')
+        password = request.data.get('password')
+        
+        # Validar las credenciales
+        usuario = authenticate(
+            username=username,
+            password=password
+        )
+        
+        if usuario is not None:
+            token, creado = Token.objects.get_or_create(
+                user=usuario
+            )
+            
+            return Response({
+                'mensaje': 'Autenticacion Correcta',
+                'usuario': usuario.username,
+                'token': token.key
+            }, status=status.HTTP_200_OK)
+            
+        return Response({
+            'error': 'Usuario o contraseña incorrectos'
+        }, status=status.HTTP_401_UNAUTHORIZED)
